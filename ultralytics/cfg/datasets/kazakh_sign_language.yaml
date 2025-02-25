@@ -1,0 +1,12 @@
+names:
+- Аты
+- Жақсы көру
+- Салеметсiз бе
+- Әже
+- Ұмыту
+- Қалпак
+nc: 6
+kpt_shape: [21, 2]
+path: C:\Users\Maria\Desktop\ultralytics-main\ultralytics-main\test_set_images
+train: C:\Users\Maria\Desktop\ultralytics-main\ultralytics-main\test_set_images\train
+val: C:\Users\Maria\Desktop\ultralytics-main\ultralytics-main\test_set_images\val
