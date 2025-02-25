@@ -1365,6 +1365,12 @@ class RandomHSV:
             >>> augmented_img = labels["img"]
         """
         img = labels["img"]
+
+        # Skip HSV conversion for non-3-channel images
+        if img.shape[2] != 3:
+            print(f"Skipping HSV augmentation: Image has {img.shape[2]} channels (expected 3)")
+            return labels  # Return original image without modification
+
         if self.hgain or self.sgain or self.vgain:
             r = np.random.uniform(-1, 1, 3) * [self.hgain, self.sgain, self.vgain] + 1  # random gains
             hue, sat, val = cv2.split(cv2.cvtColor(img, cv2.COLOR_BGR2HSV))
@@ -1377,6 +1383,7 @@ class RandomHSV:
 
             im_hsv = cv2.merge((cv2.LUT(hue, lut_hue), cv2.LUT(sat, lut_sat), cv2.LUT(val, lut_val)))
             cv2.cvtColor(im_hsv, cv2.COLOR_HSV2BGR, dst=img)  # no return needed
+
         return labels
 
 
@@ -1583,12 +1590,23 @@ class LetterBox:
             dh /= 2
 
         if shape[::-1] != new_unpad:  # resize
-            img = cv2.resize(img, new_unpad, interpolation=cv2.INTER_LINEAR)
+            if img.shape[-1] == 5:  # Handle 5-channel images
+                img_resized = np.zeros((new_unpad[1], new_unpad[0], 5), dtype=img.dtype)  # Empty array for 5 channels
+                for i in range(5):  # Resize each channel separately
+                    img_resized[..., i] = cv2.resize(img[..., i], new_unpad, interpolation=cv2.INTER_LINEAR)
+                img = img_resized
+            else:
+                img = cv2.resize(img, new_unpad, interpolation=cv2.INTER_LINEAR)
         top, bottom = int(round(dh - 0.1)) if self.center else 0, int(round(dh + 0.1))
         left, right = int(round(dw - 0.1)) if self.center else 0, int(round(dw + 0.1))
-        img = cv2.copyMakeBorder(
-            img, top, bottom, left, right, cv2.BORDER_CONSTANT, value=(114, 114, 114)
-        )  # add border
+        if img.shape[-1] == 5:  # Handle 5-channel padding
+            pad_value = [114, 114, 114, 0, 0]  # Pad RGB with 114, Optical Flow with 0
+            img_padded = np.zeros((new_shape[0], new_shape[1], 5), dtype=img.dtype)  # Empty array for padded image
+            for i in range(5):
+                img_padded[..., i] = cv2.copyMakeBorder(img[..., i], top, bottom, left, right, cv2.BORDER_CONSTANT, value=pad_value[i])
+            img = img_padded
+        else:
+            img = cv2.copyMakeBorder(img, top, bottom, left, right, cv2.BORDER_CONSTANT, value=(114, 114, 114))
         if labels.get("ratio_pad"):
             labels["ratio_pad"] = (labels["ratio_pad"], (left, top))  # for evaluation
 
@@ -1844,12 +1862,12 @@ class Albumentations:
 
             # Transforms
             T = [
-                A.Blur(p=0.01),
-                A.MedianBlur(p=0.01),
-                A.ToGray(p=0.01),
-                A.CLAHE(p=0.01),
-                A.RandomBrightnessContrast(p=0.0),
-                A.RandomGamma(p=0.0),
+                #A.Blur(p=0.01),
+                #A.MedianBlur(p=0.01),
+                #A.ToGray(p=0.01),
+                #A.CLAHE(p=0.01),
+                #A.RandomBrightnessContrast(p=0.0),
+                #A.RandomGamma(p=0.0),
                 A.ImageCompression(quality_range=(75, 100), p=0.0),
             ]
 
@@ -2335,7 +2353,7 @@ def v8_transforms(dataset, imgsz, hyp, stretch=False):
             pre_transform,
             MixUp(dataset, pre_transform=pre_transform, p=hyp.mixup),
             Albumentations(p=1.0),
-            RandomHSV(hgain=hyp.hsv_h, sgain=hyp.hsv_s, vgain=hyp.hsv_v),
+         #   RandomHSV(hgain=hyp.hsv_h, sgain=hyp.hsv_s, vgain=hyp.hsv_v),
             RandomFlip(direction="vertical", p=hyp.flipud),
             RandomFlip(direction="horizontal", p=hyp.fliplr, flip_idx=flip_idx),
         ]
